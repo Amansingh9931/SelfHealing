@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 CONTAINER="self-healing-app"
@@ -8,15 +7,21 @@ MAX_ATTEMPTS=3
 WAIT_TIME=10
 
 LOG_FILE="./logs/incidents.log"
+METRICS_FILE="./metrics/metrics.log"
+
+START_TIME=$(date +%s)
+
+log_incident() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
+
+log_metric() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$METRICS_FILE"
+}
 
 echo "========================================"
 echo "       SELF-HEALING RECOVERY"
 echo "========================================"
-
-# Function to write incident logs
-log_incident() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
-}
 
 echo "Checking application..."
 
@@ -29,6 +34,7 @@ fi
 echo "Application is unhealthy!"
 
 log_incident "FAILURE DETECTED | SERVICE=$CONTAINER"
+log_metric "health_check_failure_total=1"
 
 for attempt in $(seq 1 $MAX_ATTEMPTS)
 do
@@ -37,6 +43,7 @@ do
     echo "Recovery attempt $attempt/$MAX_ATTEMPTS"
 
     log_incident "RECOVERY ATTEMPT=$attempt | SERVICE=$CONTAINER"
+    log_metric "recovery_attempt_total=1"
 
     echo "Restarting container..."
 
@@ -51,12 +58,18 @@ do
     if curl -f "$URL" > /dev/null 2>&1
     then
 
+        END_TIME=$(date +%s)
+        RECOVERY_TIME=$((END_TIME - START_TIME))
+
         echo ""
         echo "========================================"
         echo "       RECOVERY SUCCESSFUL"
         echo "========================================"
+        echo "Recovery time: ${RECOVERY_TIME}s"
 
-        log_incident "RECOVERY SUCCESS | ATTEMPT=$attempt | SERVICE=$CONTAINER"
+        log_incident "RECOVERY SUCCESS | ATTEMPT=$attempt | RECOVERY_TIME=${RECOVERY_TIME}s"
+        log_metric "recovery_success_total=1"
+        log_metric "recovery_time_seconds=$RECOVERY_TIME"
 
         exit 0
 
@@ -65,6 +78,7 @@ do
         echo "Recovery attempt $attempt failed."
 
         log_incident "RECOVERY FAILED | ATTEMPT=$attempt | SERVICE=$CONTAINER"
+        log_metric "recovery_failure_total=1"
 
     fi
 
@@ -74,9 +88,8 @@ echo ""
 echo "========================================"
 echo "       RECOVERY FAILED"
 echo "========================================"
-echo "Maximum recovery attempts reached."
-echo "Manual intervention required."
 
 log_incident "CRITICAL | AUTOMATIC RECOVERY FAILED | SERVICE=$CONTAINER"
+log_metric "recovery_escalation_total=1"
 
 exit 1

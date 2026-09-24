@@ -1,0 +1,4 @@
+[2026-09-24 12:21:35] health_check_failure_total=1
+[2026-09-24 12:21:35] recovery_attempt_total=1
+[2026-09-24 12:21:46] recovery_success_total=1
+[2026-09-24 12:21:46] recovery_time_seconds=13
